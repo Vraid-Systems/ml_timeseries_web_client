@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="favicon.ico" />
+    <meta charset="utf-8" />
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.20/lodash.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.2.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.2.1/firebase-analytics.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.2.1/firebase-firestore.js"></script>
+    <script type="text/javascript" src="lightweight-charts.standalone.production.js"></script>
+    <title>Vraid Systems Ltd. - Viewer</title>
+</head>
+
+<body>
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyCQNhRGHUZfKi1OvQw3mUAXZvar_HwOGp8",
+        appId: "1:882692580718:web:4711ec5a64e18670ef4d7f",
+        authDomain: "ml-timeseries.firebaseapp.com",
+        measurementId: "G-7SWG8E93TQ",
+        messagingSenderId: "882692580718",
+        projectId: "ml-timeseries",
+        storageBucket: "ml-timeseries.appspot.com",
+    }
+    firebase.initializeApp(firebaseConfig)
+    firebase.analytics()
+</script>
+
+<script type="text/javascript">
+    const viewHeight = Math.floor(Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0) * 0.98)
+    const viewWidth = Math.floor(Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0) * 0.98)
+
+    const chart = LightweightCharts.createChart(document.body, {
+        height: viewHeight,
+        leftPriceScale: {
+            visible: true,
+        },
+        rightPriceScale:{
+            visible: false,
+        },
+        timeScale: {
+            secondsVisible: true,
+            timeVisible: true,
+        },
+        width: viewWidth,
+    })
+
+    const addChartSeries = function(chart, dataLabel, dataPoints) {
+        const chartSeries = chart.addLineSeries({
+            title: dataLabel,
+        })
+
+        const formattedLineSeriesData = []
+        for (let dataPointIndex = 0; dataPointIndex < dataPoints.length; dataPointIndex += 1) {
+            formattedLineSeriesData.push({
+                time: (new Date(dataPoints[dataPointIndex].time)).getTime() / 1000,
+                value: dataPoints[dataPointIndex].value,
+            })
+        }
+        chartSeries.setData(formattedLineSeriesData)
+    }
+
+    const main = async () => {
+        const dataCollection = "BKT"
+        const daysBackToFetch = 200
+        const firestore = firebase.firestore()
+        const dataQuerySnapshot = await firestore.collection(dataCollection).orderBy("orderedId", "desc").limit(daysBackToFetch).get()
+        const resultDataPoints = []
+        dataQuerySnapshot.forEach(function(doc) {
+            resultDataPoints.push(doc.data())
+        })
+        const orderedDataPoints = _.orderBy(resultDataPoints, ['time'], ['asc'])
+
+        const historicalData = _.filter(orderedDataPoints, 'isHistorical')
+        const predictedData = _.filter(orderedDataPoints, ['isHistorical', false])
+
+        addChartSeries(chart, `${dataCollection} historical`, historicalData)
+        addChartSeries(chart, `${dataCollection} predicted`, predictedData)
+    }
+
+    main()
+</script>
+</body>
+</html>
